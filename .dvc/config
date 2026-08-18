@@ -1,4 +1,4 @@
 [core]
     remote = myremote
 ['remote "myremote"']
-    url = C:\Users\visha\MyProject\Temp
+    url = s3://yt-comment-dvc-bucket
