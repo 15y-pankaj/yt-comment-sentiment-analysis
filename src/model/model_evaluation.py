@@ -4,7 +4,7 @@ import pickle
 import logging
 import yaml
 import mlflow
-import mlflow.sklearn
+import mlflow.lightgbm
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 import os
@@ -110,7 +110,7 @@ def log_confusion_matrix(cm, dataset_name):
 
 def main():
     mlflow.set_tracking_uri("http://3.238.64.70:5000")
-    mlflow.set_experiment('dvc-pipeline')
+    mlflow.set_experiment('dvc-pipeline-runs')
     
     with mlflow.start_run():
         try:
@@ -132,7 +132,15 @@ def main():
                     mlflow.log_param(param_name, param_value)
 
             # Log model and vectorizer
-            mlflow.sklearn.log_model(model, "lgbm_model")
+            mlflow.lightgbm.log_model(
+                model,
+                artifact_path="lgbm_model",
+                skops_trusted_types=[
+                    "collections.OrderedDict",
+                    "lightgbm.basic.Booster",
+                    "lightgbm.sklearn.LGBMClassifier",
+                ],
+            )
             mlflow.log_artifact(os.path.join(root_dir, 'tfidf_vectorizer.pkl'))
 
             # Load test data
