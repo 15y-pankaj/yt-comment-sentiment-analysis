@@ -153,22 +153,15 @@ def main():
             # Log model and vectorizer
             import tempfile
             with tempfile.TemporaryDirectory() as tmp_dir:
-                mlflow.lightgbm.save_model(
-                    model,
-                    path=os.path.join(tmp_dir, "lgbm_model"),
-                    skops_trusted_types=[
-                        "collections.OrderedDict",
-                        "lightgbm.basic.Booster",
-                        "lightgbm.sklearn.LGBMClassifier",
-                    ],
-                )
-                mlflow.log_artifacts(os.path.join(tmp_dir, "lgbm_model"), artifact_path="lgbm_model")
+                model_dir = os.path.join(tmp_dir, "lgbm_model")
+                mlflow.lightgbm.save_model(model, path=model_dir)
+                mlflow.log_artifacts(model_dir, artifact_path="lgbm_model")
 
             artifact_uri = mlflow.get_artifact_uri()
             model_path = "lgbm_model"
 
-            # Save model info
-            save_model_info(run.info.run_id, model_path, 'experiment_info.json')
+            # Save model info at the repository root so DVC can detect it.
+            save_model_info(run.info.run_id, model_path, os.path.join(root_dir, 'experiment_info.json'))
 
             mlflow.log_artifact(os.path.join(root_dir, 'tfidf_vectorizer.pkl'))
 
