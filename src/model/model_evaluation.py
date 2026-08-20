@@ -165,7 +165,7 @@ def main():
                 mlflow.log_artifacts(os.path.join(tmp_dir, "lgbm_model"), artifact_path="lgbm_model")
 
             artifact_uri = mlflow.get_artifact_uri()
-            model_path = f"{artifact_uri}/lgbm_model"
+            model_path = "lgbm_model"
 
             # Save model info
             save_model_info(run.info.run_id, model_path, 'experiment_info.json')
