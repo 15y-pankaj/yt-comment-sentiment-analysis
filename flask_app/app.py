@@ -6,6 +6,7 @@ matplotlib.use('Agg')  # Use non-interactive backend before importing pyplot
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import io
+import os
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import mlflow
@@ -14,8 +15,14 @@ import re
 import pandas as pd
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
-from mlflow.tracking import MlflowClient
 import matplotlib.dates as mdates
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage, SystemMessage
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -49,11 +56,25 @@ def preprocess_comment(comment):
         print(f"Error in preprocessing comment: {e}")
         return comment
 
+
+def extract_text(content):
+    """Normalize LangChain AIMessage content into a plain string."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and "text" in block:
+                parts.append(block["text"])
+        return "".join(parts).strip()
+    return str(content)
+
 # Load the model and vectorizer from the model registry and local storage
 def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
     # Set MLflow tracking URI to your server
     mlflow.set_tracking_uri("http://3.235.104.123:5000")  # Replace with your MLflow tracking URI
-    client = MlflowClient()
     model_uri = f"models:/{model_name}/{model_version}"
     model = mlflow.pyfunc.load_model(model_uri)
     vectorizer = joblib.load(vectorizer_path)  # Load the vectorizer
@@ -282,6 +303,74 @@ def generate_trend_graph():
     except Exception as e:
         app.logger.error(f"Error in /generate_trend_graph: {e}")
         return jsonify({"error": f"Trend graph generation failed: {str(e)}"}), 500
+
+@app.route('/summarize', methods=['POST'])
+def summarize():
+    """
+    Summarize YouTube comments using Google Gemini via LangChain.
+    Expected body:
+        {
+          "comments": [
+            {"text": "...", "sentiment": "1" | "0" | "-1"}, ...
+          ]
+        }
+    Returns: {"summary": "<text>"}
+    """
+    try:
+        data = request.get_json() or {}
+        comments = data.get('comments', [])
+        if not comments:
+            return jsonify({"error": "No comments provided"}), 400
+
+        # Group by sentiment bucket
+        buckets = {"1": [], "0": [], "-1": []}
+        for c in comments:
+            s = str(c.get('sentiment', '0'))
+            buckets.setdefault(s, []).append(c.get('text', ''))
+
+        # Cap each bucket so the LLM request stays within time/token budgets
+        MAX_PER_BUCKET = 100
+        for k in buckets:
+            buckets[k] = buckets[k][:MAX_PER_BUCKET]
+
+        # Build the prompt
+        system_prompt = (
+            "You are an analyst summarizing YouTube viewer comments. "
+            "Group the feedback into themes, mention the dominant sentiment, "
+            "and call out notable quotes or recurring complaints/praises. "
+            "Keep the summary under 250 words."
+        )
+
+        user_prompt = (
+            f"Positive comments ({len(buckets['1'])}):\n"
+            f"{chr(10).join('- ' + t for t in buckets['1'])}\n\n"
+            f"Neutral comments ({len(buckets['0'])}):\n"
+            f"{chr(10).join('- ' + t for t in buckets['0'])}\n\n"
+            f"Negative comments ({len(buckets['-1'])}):\n"
+            f"{chr(10).join('- ' + t for t in buckets['-1'])}\n\n"
+            "Write the summary."
+        )
+
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            return jsonify({"error": "GOOGLE_API_KEY not set on server"}), 500
+
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-3.5-flash-lite",
+            google_api_key=api_key,
+            temperature=0.3,
+        )
+
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ])
+
+        summary_text = extract_text(response.content)
+        return jsonify({"summary": summary_text})
+    except Exception as e:
+        app.logger.error(f"Error in /summarize: {e}")
+        return jsonify({"error": f"Summarization failed: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
