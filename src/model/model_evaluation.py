@@ -11,6 +11,7 @@ import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 import json
+from mlflow.models import infer_signature
 
 # logging configuration
 logger = logging.getLogger('model_evaluation')
@@ -150,11 +151,30 @@ def main():
                 for param_name, param_value in model.get_params().items():
                     mlflow.log_param(param_name, param_value)
 
+            # Load test data
+            test_data = load_data(os.path.join(root_dir, 'data/interim/test_processed.csv'))
+
+            # Prepare test data
+            X_test_tfidf = vectorizer.transform(test_data['clean_comment'].values)
+            y_test = test_data['category'].values
+
+            # Create a small example for signature inference
+            input_example = pd.DataFrame(
+                X_test_tfidf[:5].toarray(),
+                columns=vectorizer.get_feature_names_out()
+            )
+            signature = infer_signature(input_example, model.predict(X_test_tfidf[:5]))
+
             # Log model and vectorizer
             import tempfile
             with tempfile.TemporaryDirectory() as tmp_dir:
                 model_dir = os.path.join(tmp_dir, "lgbm_model")
-                mlflow.lightgbm.save_model(model, path=model_dir)
+                mlflow.lightgbm.save_model(
+                    model,
+                    path=model_dir,
+                    signature=signature,
+                    input_example=input_example
+                )
                 mlflow.log_artifacts(model_dir, artifact_path="lgbm_model")
 
             artifact_uri = mlflow.get_artifact_uri()
@@ -164,13 +184,6 @@ def main():
             save_model_info(run.info.run_id, model_path, os.path.join(root_dir, 'experiment_info.json'))
 
             mlflow.log_artifact(os.path.join(root_dir, 'tfidf_vectorizer.pkl'))
-
-            # Load test data
-            test_data = load_data(os.path.join(root_dir, 'data/interim/test_processed.csv'))
-
-            # Prepare test data
-            X_test_tfidf = vectorizer.transform(test_data['clean_comment'].values)
-            y_test = test_data['category'].values
 
             # Evaluate model and get metrics
             report, cm = evaluate_model(model, X_test_tfidf, y_test)
