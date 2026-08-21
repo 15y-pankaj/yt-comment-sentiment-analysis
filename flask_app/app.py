@@ -95,19 +95,28 @@ def predict_with_timestamps():
         comments = [item['text'] for item in comments_data]
         timestamps = [item['timestamp'] for item in comments_data]
 
-        # Preprocess each comment before vectorizing
+               # Preprocess each comment before vectorizing
         preprocessed_comments = [preprocess_comment(comment) for comment in comments]
         
         # Transform comments using the vectorizer
         transformed_comments = vectorizer.transform(preprocessed_comments)
+
+        # Convert to a dense DataFrame with named columns, matching how the
+        # model's signature was logged during training
+        transformed_df = pd.DataFrame(
+            transformed_comments.toarray(),
+            columns=vectorizer.get_feature_names_out()
+        )
         
         # Make predictions
-        predictions = model.predict(transformed_comments).tolist()  # Convert to list
+        predictions = model.predict(transformed_df).tolist()  # Convert to list
         
         # Convert predictions to strings for consistency
         predictions = [str(pred) for pred in predictions]
     except Exception as e:
+        app.logger.error(f"Error in /predict_with_timestamps: {e}")
         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+
     
     # Return the response with original comments, predicted sentiments, and timestamps
     response = [{"comment": comment, "sentiment": sentiment, "timestamp": timestamp} for comment, sentiment, timestamp in zip(comments, predictions, timestamps)]
@@ -122,19 +131,28 @@ def predict():
         return jsonify({"error": "No comments provided"}), 400
 
     try:
-        # Preprocess each comment before vectorizing
+               # Preprocess each comment before vectorizing
         preprocessed_comments = [preprocess_comment(comment) for comment in comments]
         
         # Transform comments using the vectorizer
         transformed_comments = vectorizer.transform(preprocessed_comments)
+
+        # Convert to a dense DataFrame with named columns, matching how the
+        # model's signature was logged during training
+        transformed_df = pd.DataFrame(
+            transformed_comments.toarray(),
+            columns=vectorizer.get_feature_names_out()
+        )
         
         # Make predictions
-        predictions = model.predict(transformed_comments).tolist()  # Convert to list
+        predictions = model.predict(transformed_df).tolist()  # Convert to list
         
         # Convert predictions to strings for consistency
         predictions = [str(pred) for pred in predictions]
     except Exception as e:
+        app.logger.error(f"Error in /predict: {e}")
         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+    
     
     # Return the response with original comments and predicted sentiments
     response = [{"comment": comment, "sentiment": sentiment} for comment, sentiment in zip(comments, predictions)]
