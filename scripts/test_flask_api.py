@@ -1,46 +1,56 @@
 import os
 import pytest
-import requests
-import json
 
-BASE_URL = "http://localhost:5000"  # Replace with your deployed URL if needed
+from flask_app.app import app
 
-def test_predict_endpoint():
+
+@pytest.fixture
+def client():
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        yield client
+
+
+def test_predict_endpoint(client):
     data = {
         "comments": ["This is a great product!", "Not worth the money.", "It's okay."]
     }
-    response = requests.post(f"{BASE_URL}/predict", json=data)
+    response = client.post("/predict", json=data)
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    assert isinstance(response.get_json(), list)
 
-def test_predict_with_timestamps_endpoint():
+
+def test_predict_with_timestamps_endpoint(client):
     data = {
         "comments": [
             {"text": "This is fantastic!", "timestamp": "2024-10-25 10:00:00"},
             {"text": "Could be better.", "timestamp": "2024-10-26 14:00:00"}
         ]
     }
-    response = requests.post(f"{BASE_URL}/predict_with_timestamps", json=data)
+    response = client.post("/predict_with_timestamps", json=data)
     assert response.status_code == 200
-    assert all('sentiment' in item for item in response.json())
+    assert all('sentiment' in item for item in response.get_json())
 
-def test_generate_chart_endpoint():
+
+def test_generate_chart_endpoint(client):
     data = {
         "sentiment_counts": {"1": 5, "0": 3, "-1": 2}
     }
-    response = requests.post(f"{BASE_URL}/generate_chart", json=data)
+    response = client.post("/generate_chart", json=data)
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "image/png"
 
-def test_generate_wordcloud_endpoint():
+
+def test_generate_wordcloud_endpoint(client):
     data = {
         "comments": ["Love this!", "Not so great.", "Absolutely amazing!", "Horrible experience."]
     }
-    response = requests.post(f"{BASE_URL}/generate_wordcloud", json=data)
+    response = client.post("/generate_wordcloud", json=data)
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "image/png"
 
-def test_generate_trend_graph_endpoint():
+
+def test_generate_trend_graph_endpoint(client):
     data = {
         "sentiment_data": [
             {"timestamp": "2024-10-01", "sentiment": 1},
@@ -48,12 +58,12 @@ def test_generate_trend_graph_endpoint():
             {"timestamp": "2024-10-03", "sentiment": -1}
         ]
     }
-    response = requests.post(f"{BASE_URL}/generate_trend_graph", json=data)
+    response = client.post("/generate_trend_graph", json=data)
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "image/png"
 
 
-def test_summarize_endpoint():
+def test_summarize_endpoint(client):
     if not os.getenv("GOOGLE_API_KEY"):
         pytest.skip("GOOGLE_API_KEY is not set; skipping summarize endpoint test.")
 
@@ -64,7 +74,7 @@ def test_summarize_endpoint():
             {"text": "This is terrible and a waste of money.", "sentiment": "-1"}
         ]
     }
-    response = requests.post(f"{BASE_URL}/summarize", json=data)
+    response = client.post("/summarize", json=data)
     assert response.status_code == 200
-    assert "summary" in response.json()
-    assert isinstance(response.json()["summary"], str)
+    assert "summary" in response.get_json()
+    assert isinstance(response.get_json()["summary"], str)
