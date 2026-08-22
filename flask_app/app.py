@@ -72,16 +72,35 @@ def extract_text(content):
     return str(content)
 
 # Load the model and vectorizer from the model registry and local storage
-def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
+from mlflow.tracking import MlflowClient
+
+# Load the model and vectorizer from the model registry.
+# Both are pulled from the SAME MLflow run so they can never drift apart.
+def load_model_and_vectorizer(model_name, model_version, vectorizer_artifact_path="tfidf_vectorizer.pkl"):
     # Set MLflow tracking URI to your server
     mlflow.set_tracking_uri("http://3.235.104.123:5000")  # Replace with your MLflow tracking URI
+    client = MlflowClient()
+
     model_uri = f"models:/{model_name}/{model_version}"
     model = mlflow.pyfunc.load_model(model_uri)
-    vectorizer = joblib.load(vectorizer_path)  # Load the vectorizer
+
+    # Find the exact run that produced this registered model version
+    mv = client.get_model_version(model_name, model_version)
+    run_id = mv.run_id
+
+    # Download the vectorizer artifact that was logged in that same run
+    local_path = mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path=vectorizer_artifact_path,
+    )
+    vectorizer = joblib.load(local_path)
     return model, vectorizer
 
 # Initialize the model and vectorizer
-model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10", "./tfidf_vectorizer.pkl")  # Update paths and versions as needed
+model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10")
+
+# Initialize the model and vectorizer
+#model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10", "./tfidf_vectorizer.pkl")  # Update paths and versions as needed
 
 @app.route('/predict_with_timestamps', methods=['POST'])
 def predict_with_timestamps():
