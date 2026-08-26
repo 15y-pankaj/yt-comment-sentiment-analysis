@@ -171,7 +171,7 @@ jobs:
         run: |
           aws deploy create-deployment \
             --application-name YTChromePlugin \
-            --deployment-config-name CodeDeployDefault.AllAtATime \
+            --deployment-config-name CodeDeployDefault.OneAtATime \
             --deployment-group-name YTChromePluginDeploymentGroup \
             --s3-location bucket=yt-codedeploybucket,key=deployment.zip,bundleType=zip \
             --file-exists-behavior OVERWRITE \
