@@ -145,3 +145,34 @@ jobs:
         if: success()
         run: |
           docker push 557496517362.dkr.ecr.us-east-1.amazonaws.com/yt-chrome-plugin:latest
+
+      - name: zip files for deployment
+        if: success()
+        run: |
+          zip -r deployment.zip appspec.yml deploy/scripts/install_dependencies.sh deploy/scripts/start_docker.sh
+      
+      # Upload the zip file to S3
+      - name: Upload ZIP to S3
+        if: success()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          aws s3 cp deployment.zip s3://yt-codedeploybucket/deployment.zip
+
+      # Deploy to AWS CodeDeploy using the uploaded ZIP file
+      - name: Deploy to AWS CodeDeploy
+        if: success()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          aws deploy create-deployment \
+            --application-name YTChromePlugin \
+            --deployment-config-name CodeDeployDefault.AllAtATime \
+            --deployment-group-name YTChromePluginDeploymentGroup \
+            --s3-location bucket=yt-codedeploybucket,key=deployment.zip,bundleType=zip \
+            --file-exists-behavior OVERWRITE \
+            --region us-east-1
