@@ -5,26 +5,26 @@ exec > /home/ubuntu/start_docker.log 2>&1
 set -e
 
 echo "Logging in to ECR..."
-aws ecr get-login-password --region us-east-1 | \
-docker login --username AWS --password-stdin 557496517362.dkr.ecr.us-east-1.amazonaws.com
+sudo aws ecr get-login-password --region us-east-1 | \
+sudo docker login --username AWS --password-stdin 557496517362.dkr.ecr.us-east-1.amazonaws.com
 
 echo "Pulling Docker image from ECR..."
-docker pull 557496517362.dkr.ecr.us-east-1.amazonaws.com/yt-chrome-plugin:latest
+sudo docker pull 557496517362.dkr.ecr.us-east-1.amazonaws.com/yt-chrome-plugin:latest
 
 echo "Checking for existing container..."
 
-if [ "$(docker ps -q -f name=yt-chrome-plugin)" ]; then
+if [ "$(sudo docker ps -q -f name=yt-chrome-plugin)" ]; then
     echo "Stopping existing container..."
-    docker stop yt-chrome-plugin
+    sudo docker stop yt-chrome-plugin
 fi
 
-if [ "$(docker ps -aq -f name=yt-chrome-plugin)" ]; then
+if [ "$(sudo docker ps -aq -f name=yt-chrome-plugin)" ]; then
     echo "Removing existing container..."
-    docker rm yt-chrome-plugin
+    sudo docker rm yt-chrome-plugin
 fi
 
 echo "Starting new container..."
-docker run -d \
+sudo docker run -d \
     -p 80:5000 \
     --name yt-chrome-plugin \
     557496517362.dkr.ecr.us-east-1.amazonaws.com/yt-chrome-plugin:latest
@@ -39,5 +39,5 @@ for i in $(seq 1 45); do
 done
 
 echo "App failed to become healthy; dumping container logs:"
-docker logs yt-chrome-plugin --tail 200 || true
+sudo docker logs yt-chrome-plugin --tail 200 || true
 exit 1
