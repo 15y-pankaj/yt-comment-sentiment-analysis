@@ -106,6 +106,10 @@ model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10")
 def home():
     return "Welcome to the YouTube Comment Sentiment Analysis API"
 
+@app.route('/health')
+def health():
+    return jsonify({"status": "ok"}), 200
+
 @app.route('/predict_with_timestamps', methods=['POST'])
 def predict_with_timestamps():
     data = request.json
