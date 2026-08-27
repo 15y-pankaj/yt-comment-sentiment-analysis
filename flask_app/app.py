@@ -96,21 +96,8 @@ def load_model_and_vectorizer(model_name, model_version, vectorizer_artifact_pat
     vectorizer = joblib.load(local_path)
     return model, vectorizer
 
-# Initialize model and vectorizer in background so /health responds immediately even if MLflow is slow/unreachable
-import threading
-
-model = None
-vectorizer = None
-
-def _load_model_background():
-    global model, vectorizer
-    try:
-        model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10")
-        app.logger.info("Model and vectorizer loaded successfully")
-    except Exception as e:
-        app.logger.error(f"Failed to load model: {e}")
-
-threading.Thread(target=_load_model_background, daemon=True).start()
+# Initialize the model and vectorizer
+model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10")
 
 # Initialize the model and vectorizer
 #model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10", "./tfidf_vectorizer.pkl")  # Update paths and versions as needed
