@@ -96,8 +96,13 @@ def load_model_and_vectorizer(model_name, model_version, vectorizer_artifact_pat
     vectorizer = joblib.load(local_path)
     return model, vectorizer
 
-# Initialize the model and vectorizer
-model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10")
+# Initialize the model and vectorizer (wrap in try/except so /health still responds if MLflow is unreachable)
+try:
+    model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10")
+    app.logger.info("Model and vectorizer loaded successfully")
+except Exception as e:
+    app.logger.error(f"Failed to load model: {e}")
+    model, vectorizer = None, None
 
 # Initialize the model and vectorizer
 #model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model1", "10", "./tfidf_vectorizer.pkl")  # Update paths and versions as needed
