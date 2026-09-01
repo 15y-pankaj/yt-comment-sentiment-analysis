@@ -1,0 +1,16 @@
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints
+.vscode
+.idea
+c_myenv/
+data/
+models/
+notebooks/
+references/
+reports/
+src/
